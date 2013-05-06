@@ -1,0 +1,231 @@
+SYSTEM ExampleSystem 
+    
+	PRIORITY leds > io > magnetic > entry > state > connection >  
+             st_writer > st_reader > display 
+
+    FILEPREFIX task_
+    
+    CREATE task_messages.h
+    	/* file generated from syscompiler, DO NOT EDIT */
+    	#ifndef __TASK_MESSAGES_H
+    	#define __TASK_MESSAGES_H
+    	
+    	#define MAG_MSG_SIZE 		64
+		#define ENTRY_MSG_SIZE 		16
+		/* 62 + 1 (LEN) + 1 (SIGNATURE) = 64 byte block */
+		#define DIS_MSG_SIZE 		62
+		#define OUTPUTS_MSG_SIZE 	2
+		#define INPUTS_MSG_SIZE 	2
+		#define EEP_MSG_SIZE 		32  
+	
+		#endif  
+    END CREATE
+
+    //
+    // codigo que sera introducido en todas las cabeceras
+    // de las tareas
+    //
+    CODE
+        #include <basetypes.h>
+        #include "task_messages.h"
+    END CODE
+
+
+    TASK magnetic 
+        PERIOD 50ms LOAD 1ms
+        USES entry
+    END magnetic
+
+
+    TASK RTC
+
+        PERIOD 200ms LOAD 4ms
+
+        CODE
+            extern rtc_data *RTC;
+        END CODE
+
+        MESSAGE set FROM state
+            byte HOUR,MINUTE,SECOND;
+            byte DAY,MONTH,YEAR;
+        END MESSAGE
+
+    END RTC
+
+
+	TASK state
+
+        PERIOD 25ms LOAD 4ms
+
+		USES connection, io, st_writer, st_reader,RTC,display
+       
+        
+        MESSAGE waiting_data FROM connection
+            byte T; 
+		    string DATA[MAG_MSG_SIZE];
+		    byte ORIG;
+        END MESSAGE
+       
+        MESSAGE display_timeout FROM display
+            byte T;
+        END MESSAGE
+		
+
+		MESSAGE entry FROM entry
+            byte T;
+            string DATA[ENTRY_MSG_SIZE];
+            byte ORIG;
+        END MESSAGE
+						
+		MESSAGE lcd_read_err FROM st_reader
+            byte N;
+            byte STATUS;
+        END MESSAGE
+
+        MESSAGE read_finished FROM st_reader
+            byte POS;
+            string DATA[EEP_MSG_SIZE];
+        END MESSAGE
+    
+        MESSAGE write_finished FROM st_writer
+            byte POS,LEN;
+        END MESSAGE
+
+        MESSAGE io_changed FROM io
+            string INPUTS[INPUTS_MSG_SIZE];
+            string OUTPUTS[OUTPUTS_MSG_SIZE];
+        END MESSAGE
+
+	END state
+
+
+    TASK io
+
+        USES state
+
+        MESSAGE outputs_low FROM state
+            string OUTPUTS[OUTPUTS_MSG_SIZE];
+        END MESSAGE
+    
+        MESSAGE outputs_high FROM state
+            string OUTPUTS[OUTPUTS_MSG_SIZE];
+        END MESSAGE
+        
+    END io
+
+
+    TASK display
+        
+        PERIOD 100ms LOAD 8ms
+        
+        USES state,entry,leds
+        
+        MESSAGE msg FROM state
+            byte T;
+            string DATA[DIS_MSG_SIZE];
+        END MESSAGE
+    
+        MESSAGE clear FROM state
+        END MESSAGE
+
+        MESSAGE leds_finished FROM leds
+        END MESSAGE
+
+        MESSAGE entry_data FROM entry
+            string DATA[ENTRY_MSG_SIZE];
+            byte MAX;
+        END MESSAGE
+    
+        MESSAGE entry_timeout FROM entry
+            byte T;
+        END MESSAGE
+
+    
+    END display
+
+    TASK leds
+
+        PERIOD 50ms LOAD 500us
+
+        MESSAGE prog FROM display
+            byte RED_BLINKS, RED_LEN;
+            byte GREEN_BLINKS, GREEN_LEN;
+            byte BUZZ_BLINKS, BUZZ_LEN;
+        END MESSAGE
+        
+        MESSAGE toggle_led0 END MESSAGE
+        MESSAGE toggle_led1 END MESSAGE
+        MESSAGE switch_on_led0 END MESSAGE
+        MESSAGE switch_on_led1 END MESSAGE
+
+    END leds
+
+    TASK entry
+        
+        PERIOD 50ms LOAD 1ms 
+        
+        USES state
+        
+        MESSAGE magnetic FROM magnetic
+            string DATA[MAG_MSG_SIZE];
+        END MESSAGE
+        
+        MESSAGE set_mode FROM display
+            byte LEN, TYPE, SS, T;
+        END MESSAGE
+        
+    END entry  
+        
+    TASK magnetic
+        PERIOD 50ms LOAD 500us
+        USES entry
+    END magnetic
+
+
+	TASK connection
+		PERIOD 50ms LOAD 5ms
+		
+		USES state
+        
+		MESSAGE waiting_data FROM state
+        	byte T;
+           	string DATA[MAG_MSG_SIZE];
+           	byte ORIG;
+        END MESSAGE
+
+	END connection
+
+    TASK st_writer
+    	PERIOD 50ms LOAD 3ms
+
+        USES state
+
+        MESSAGE lcd_message FROM state
+            byte N;
+            string DATA[DIS_MSG_SIZE];
+        END MESSAGE
+        
+        MESSAGE write FROM state
+            byte POS;
+            string DATA[EEP_MSG_SIZE];
+        END MESSAGE
+
+    END st_writer
+
+    
+    TASK st_reader
+    	PERIOD 50ms LOAD 5ms
+        USES state
+        
+        MESSAGE lcd_message FROM state
+            byte N,T;
+        END MESSAGE
+        
+        MESSAGE read FROM state
+            byte POS;
+            byte LEN;
+        END MESSAGE
+        
+    END st_reader
+		
+END TerminalS18.
