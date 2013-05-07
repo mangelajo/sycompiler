@@ -211,10 +211,14 @@ def parse(rule, text):
 
 if __name__ == '__main__':
     from sys import argv, stdin
+    print ""
+    print "syscompiler v1.00 (c) 2013, NBEE Embedded Systems SL"
+    print ""
     if len(argv) >= 2:
         f = open(argv[1],'r')
         parse("system", f.read())
     else:
-        print 'Args:  [<filename>]'		
+        print 'Args:  [<filename>]'
+    print ""
 
-      	
+
